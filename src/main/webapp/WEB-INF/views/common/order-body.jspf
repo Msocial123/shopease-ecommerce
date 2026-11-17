@@ -1,0 +1,64 @@
+<%-- Shared order detail body used by the customer and admin order pages. Expects ${order}. --%>
+<div class="order-detail-grid">
+    <section class="card">
+        <h3>Items</h3>
+        <table class="table">
+            <thead><tr><th>Product</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
+            <tbody>
+            <c:forEach var="it" items="${order.items}">
+                <tr>
+                    <td class="item-cell">
+                        <se:productImage id="${it.productId}" url="${it.imageUrl}" alt="${it.productName}" cssClass="thumb"/>
+                        <a href="${ctx}/products/${it.productId}"><c:out value="${it.productName}"/></a>
+                    </td>
+                    <td class="num"><se:money value="${it.unitPrice}"/></td>
+                    <td class="num">${it.quantity}</td>
+                    <td class="num"><se:money value="${it.lineTotal}"/></td>
+                </tr>
+            </c:forEach>
+            </tbody>
+            <tfoot>
+            <tr><td colspan="3" class="num">Subtotal</td><td class="num"><se:money value="${order.subtotal}"/></td></tr>
+            <tr><td colspan="3" class="num">GST</td><td class="num"><se:money value="${order.tax}"/></td></tr>
+            <tr><td colspan="3" class="num">Shipping</td><td class="num"><se:money value="${order.shipping}"/></td></tr>
+            <tr class="total"><td colspan="3" class="num">Total</td><td class="num"><se:money value="${order.total}"/></td></tr>
+            </tfoot>
+        </table>
+    </section>
+
+    <aside>
+        <section class="card">
+            <h3>Shipping to</h3>
+            <p class="address">
+                <strong><c:out value="${order.shipName}"/></strong><br>
+                <c:out value="${order.shipLine1}"/><br>
+                <c:if test="${not empty order.shipLine2}"><c:out value="${order.shipLine2}"/><br></c:if>
+                <c:out value="${order.shipCity}"/>, <c:out value="${order.shipState}"/> - <c:out value="${order.shipZip}"/><br>
+                Phone: <c:out value="${order.shipPhone}"/>
+            </p>
+            <c:if test="${not empty order.notes}"><p class="muted small">Note: <c:out value="${order.notes}"/></p></c:if>
+        </section>
+        <section class="card">
+            <h3>Payments</h3>
+            <c:choose>
+                <c:when test="${empty order.payments}"><p class="muted">No payment yet.</p></c:when>
+                <c:otherwise>
+                    <ul class="payment-list">
+                        <c:forEach var="p" items="${order.payments}">
+                            <li>
+                                <div><se:orderStatus status="${p.status}"/> <strong><se:money value="${p.amount}"/></strong></div>
+                                <div class="muted small">
+                                    <c:out value="${p.method.label}"/>
+                                    <c:if test="${not empty p.cardLast4}"> &middot; <c:out value="${p.cardBrand}"/> &bull;&bull;&bull;&bull; <c:out value="${p.cardLast4}"/></c:if>
+                                    <c:if test="${not empty p.upiId}"> &middot; <c:out value="${p.upiId}"/></c:if>
+                                </div>
+                                <div class="muted small"><c:out value="${p.transactionRef}"/> &middot; <fmt:formatDate value="${p.createdDate}" pattern="dd MMM yyyy, hh:mm a"/></div>
+                                <c:if test="${not empty p.message}"><div class="small"><c:out value="${p.message}"/></div></c:if>
+                            </li>
+                        </c:forEach>
+                    </ul>
+                </c:otherwise>
+            </c:choose>
+        </section>
+    </aside>
+</div>

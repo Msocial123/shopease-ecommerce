@@ -1,0 +1,11 @@
+<%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="se" tagdir="/WEB-INF/tags" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<fmt:setLocale value="en_IN" scope="request"/>
+<c:set var="fwdUri" value="${requestScope['jakarta.servlet.forward.request_uri']}"/>
+<c:set var="fwdQuery" value="${requestScope['jakarta.servlet.forward.query_string']}"/>
+<c:set var="currentPath" scope="request"
+       value="${empty ctx ? fwdUri : fn:substringAfter(fwdUri, ctx)}${empty fwdQuery ? '' : '?'}${fwdQuery}"/>

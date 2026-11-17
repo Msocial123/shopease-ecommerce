@@ -1,0 +1,36 @@
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-grid">
+        <div>
+            <a class="brand brand-light" href="${ctx}/"><span class="brand-mark">S</span><span class="brand-name"><c:out value="${applicationScope.storeName}"/></span></a>
+            <p class="muted">Quality products, honest prices and fast delivery across the country.</p>
+        </div>
+        <div>
+            <h4>Shop</h4>
+            <a href="${ctx}/products">All products</a>
+            <a href="${ctx}/products?sort=newest">New arrivals</a>
+            <a href="${ctx}/products?sort=rating">Top rated</a>
+        </div>
+        <div>
+            <h4>Account</h4>
+            <a href="${ctx}/account">My account</a>
+            <a href="${ctx}/orders">Order history</a>
+            <a href="${ctx}/cart">Cart</a>
+        </div>
+        <div>
+            <h4>Help</h4>
+            <a href="${ctx}/about">About us</a>
+            <span class="muted">Free shipping on orders over <se:money value="${applicationScope.freeShippingThreshold}"/></span>
+            <span class="muted">Secure payments &middot; Easy returns</span>
+        </div>
+    </div>
+    <div class="container footer-bottom">
+        <span>&copy; 2026 <c:out value="${applicationScope.storeName}"/>. All rights reserved.</span>
+        <span class="muted">Built with Spring MVC &middot; Jakarta Servlet 6.1 &middot; JSP &middot; MySQL</span>
+    </div>
+</footer>
+
+<script src="${ctx}/assets/js/app.js"></script>
+</body>
+</html>

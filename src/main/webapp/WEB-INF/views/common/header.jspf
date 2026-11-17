@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="${csrfToken}">
+    <title><c:out value="${pageTitle}"/> | <c:out value="${applicationScope.storeName}"/></title>
+    <link rel="icon" href="${ctx}/assets/img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="${ctx}/assets/css/app.css">
+</head>
+<body data-ctx="${ctx}">
+<header class="site-header">
+    <div class="container header-inner">
+        <button class="icon-btn nav-toggle" type="button" aria-label="Open menu" data-nav-toggle>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <a class="brand" href="${ctx}/">
+            <span class="brand-mark">S</span><span class="brand-name"><c:out value="${applicationScope.storeName}"/></span>
+        </a>
+        <form class="search" action="${ctx}/products" method="get" role="search">
+            <input type="search" name="q" value="<c:out value='${param.q}'/>" placeholder="Search products, brands and more" aria-label="Search products">
+            <button type="submit" aria-label="Search">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </form>
+        <nav class="header-actions" aria-label="Account">
+            <c:choose>
+                <c:when test="${not empty sessionScope.currentUser}">
+                    <div class="dropdown">
+                        <button class="dropdown-toggle" type="button" aria-haspopup="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <span class="hide-sm">Hi, <c:out value="${sessionScope.currentUser.firstName}"/></span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="${ctx}/account">My account</a>
+                            <a href="${ctx}/orders">My orders</a>
+                            <c:if test="${sessionScope.currentUser.admin}"><a href="${ctx}/admin">Admin panel</a></c:if>
+                            <form action="${ctx}/logout" method="post">
+                                <se:csrf/>
+                                <button type="submit">Log out</button>
+                            </form>
+                        </div>
+                    </div>
+                </c:when>
+                <c:otherwise>
+                    <a class="header-link" href="${ctx}/login">Log in</a>
+                    <a class="btn btn-sm btn-outline hide-sm" href="${ctx}/register">Sign up</a>
+                </c:otherwise>
+            </c:choose>
+            <a class="cart-link" href="${ctx}/cart" aria-label="Cart">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.4" fill="currentColor"/><circle cx="17" cy="20" r="1.4" fill="currentColor"/></svg>
+                <span class="cart-count" data-cart-count>${empty cartCount ? 0 : cartCount}</span>
+            </a>
+        </nav>
+    </div>
+    <nav class="category-bar" data-nav aria-label="Categories">
+        <div class="container category-inner">
+            <a href="${ctx}/products">All products</a>
+            <c:forEach var="cat" items="${navCategories}">
+                <a href="${ctx}/category/${cat.slug}" class="${selectedCategory.id == cat.id ? 'active' : ''}"><c:out value="${cat.name}"/></a>
+            </c:forEach>
+        </div>
+    </nav>
+</header>
+
+<div class="toast-stack" aria-live="polite">
+    <c:if test="${not empty success}"><div class="toast toast-success" data-toast><c:out value="${success}"/></div></c:if>
+    <c:if test="${not empty error}"><div class="toast toast-error" data-toast><c:out value="${error}"/></div></c:if>
+</div>
+
+<main class="site-main">

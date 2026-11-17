@@ -1,0 +1,11 @@
+<aside class="admin-nav card">
+    <span class="admin-label">Admin</span>
+    <a href="${ctx}/admin" class="${adminSection == 'dashboard' ? 'active' : ''}">Dashboard</a>
+    <a href="${ctx}/admin/orders" class="${adminSection == 'orders' ? 'active' : ''}">Orders</a>
+    <a href="${ctx}/admin/products" class="${adminSection == 'products' ? 'active' : ''}">Products</a>
+    <a href="${ctx}/admin/categories" class="${adminSection == 'categories' ? 'active' : ''}">Categories</a>
+    <a href="${ctx}/admin/users" class="${adminSection == 'users' ? 'active' : ''}">Customers</a>
+    <hr>
+    <a href="${ctx}/">&lsaquo; Back to store</a>
+    <a href="${ctx}/health" target="_blank" rel="noopener">Health check</a>
+</aside>
