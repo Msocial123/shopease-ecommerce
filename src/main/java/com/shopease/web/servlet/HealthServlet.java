@@ -23,8 +23,10 @@ public class HealthServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String db = "DOWN";
+        String source = "unknown";
         try {
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
+            source = ctx.getBean("dataSourceDescription", String.class);
             try (Connection c = ctx.getBean(DataSource.class).getConnection()) {
                 if (c.isValid(2)) db = "UP";
             }
@@ -36,7 +38,7 @@ public class HealthServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setHeader("Cache-Control", "no-store");
         resp.getWriter().write("{\"status\":\"" + (up ? "UP" : "DEGRADED") + "\",\"database\":\"" + db
-                + "\",\"activeSessions\":" + SessionTrackingListener.activeSessions()
+                + "\",\"dataSource\":\"" + source.replace("\"", "") + "\",\"activeSessions\":" + SessionTrackingListener.activeSessions()
                 + ",\"server\":\"" + getServletContext().getServerInfo().replace("\"", "")
                 + "\",\"servletApi\":\"" + getServletContext().getMajorVersion() + "." + getServletContext().getMinorVersion()
                 + "\",\"time\":\"" + Instant.now() + "\"}");

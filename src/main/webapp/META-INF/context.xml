@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Links the global JNDI DataSource defined in Tomcat's conf/server.xml
+    (<GlobalNamingResources><Resource name="jdbc/ShopEaseDB" .../>) into this web app
+    as java:comp/env/jdbc/ShopEaseDB.
+
+    If server.xml has no such resource, the app falls back to db.url / DB_URL settings.
+-->
+<Context>
+    <ResourceLink name="jdbc/ShopEaseDB" global="jdbc/ShopEaseDB" type="javax.sql.DataSource"/>
+</Context>

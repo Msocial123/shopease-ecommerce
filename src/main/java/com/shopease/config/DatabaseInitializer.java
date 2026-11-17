@@ -44,8 +44,8 @@ public class DatabaseInitializer {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Value("${db.url:}")
-    private String dbUrl;
+    @Value("#{dataSourceDescription}")
+    private String dataSourceDescription;
     @Value("${db.username:}")
     private String dbUser;
 
@@ -63,14 +63,16 @@ public class DatabaseInitializer {
 
                     ************************************************************************
                      ShopEase could not reach / initialise the database.
-                       URL : {}
-                       User: {}
-                       Cause: {}
-                     Check that MySQL is running and that db.url / db.username / db.password
-                     (or DB_URL / DB_USERNAME / DB_PASSWORD in Tomcat's bin/setenv.sh) are
-                     correct, then restart Tomcat. Status: GET /shopease/health
+                       Source: {}
+                       User  : {}
+                       Cause : {}
+                     Check that MySQL is running and that the connection settings are correct:
+                     the jdbc/ShopEaseDB <Resource> in Tomcat's conf/server.xml, or else
+                     db.url / db.username / db.password (DB_* in bin/setenv.sh).
+                     Then restart Tomcat. Status: GET /shopease/health
                     ************************************************************************""",
-                    dbUrl, dbUser, rootCause(e).toString());
+                    dataSourceDescription, dataSourceDescription.startsWith("jndi:") ? "(from server.xml)" : dbUser,
+                    rootCause(e).toString());
         }
     }
 

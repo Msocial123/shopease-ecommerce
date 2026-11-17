@@ -124,6 +124,26 @@ export CATALINA_OPTS="$CATALINA_OPTS -Ddb.username=shopease -Ddb.password=Change
 
 Other settings: `app.tax.rate` (default 0.18), `app.shipping.freeThreshold` (999), `app.shipping.flatFee` (49), `app.currency.symbol` (₹), `app.admin.email`, `app.admin.password`, and `app.db.init` (set it to `false` once you manage the schema yourself).
 
+### Option: connection details in Tomcat's `server.xml` (JNDI DataSource)
+
+If Tomcat defines a global `jdbc/ShopEaseDB` resource, the app uses it ahead of the `db.*` settings. `META-INF/context.xml` in the WAR links it automatically.
+
+1. Copy the MySQL driver into Tomcat's `lib` (Tomcat creates the pool itself, so it needs the driver there):
+   ```bash
+   sudo cp ~/.m2/repository/com/mysql/mysql-connector-j/9.4.0/mysql-connector-j-9.4.0.jar /opt/tomcat/lib/
+   ```
+2. Inside `<GlobalNamingResources>` in `/opt/tomcat/conf/server.xml` add (`&` in the URL must be written `&amp;`):
+   ```xml
+   <Resource name="jdbc/ShopEaseDB" auth="Container" type="javax.sql.DataSource"
+             factory="org.apache.tomcat.dbcp.dbcp2.BasicDataSourceFactory"
+             driverClassName="com.mysql.cj.jdbc.Driver"
+             url="jdbc:mysql://localhost:3306/shopease?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC&amp;characterEncoding=UTF-8"
+             username="shopease" password="CHANGE_ME"
+             maxTotal="20" maxIdle="5" minIdle="2" maxWaitMillis="10000"
+             validationQuery="SELECT 1" testOnBorrow="true"/>
+   ```
+3. Restart Tomcat. `/shopease/health` then shows `"dataSource":"jndi:java:comp/env/jdbc/ShopEaseDB"`.
+
 ## 4. Build
 
 ```bash
