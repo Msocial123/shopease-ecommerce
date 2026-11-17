@@ -94,6 +94,20 @@ GRANT ALL PRIVILEGES ON shopease.* TO 'shopease'@'localhost';
 
 To create the schema yourself instead, run `src/main/resources/db/schema.sql` and then `data.sql`.
 
+### Ubuntu server: one-step MySQL + JDBC setup
+
+The MySQL JDBC driver (`mysql-connector-j`) is already bundled in the WAR, so nothing has to be copied into Tomcat's `lib`.
+On the Ubuntu machine that runs Tomcat, [`deploy/setup-mysql-jdbc.sh`](deploy/setup-mysql-jdbc.sh) installs MySQL, creates the database and user, tests the login and writes the JDBC settings into Tomcat's `bin/setenv.sh`:
+
+```bash
+chmod +x deploy/setup-mysql-jdbc.sh
+sudo ./deploy/setup-mysql-jdbc.sh                     # random DB password, saved in /root/shopease-db.credentials
+sudo DB_PASSWORD='MyStr0ngPass' ./deploy/setup-mysql-jdbc.sh --restart   # restart Tomcat + check /shopease/health
+sudo CATALINA_BASE=/opt/tomcat ./deploy/setup-mysql-jdbc.sh             # if Tomcat isn't auto-detected
+```
+
+It is safe to re-run. Run `--help` for all the options, including a remote MySQL host.
+
 ## 3. Configure
 
 Defaults live in `src/main/resources/app.properties` (`root` / `root` on `localhost:3306/shopease`). **Override them without rebuilding**, either with environment variables or with JVM properties in Tomcat's `bin/setenv.bat` / `setenv.sh`:
