@@ -79,7 +79,8 @@ if [[ -z "${DB_PASSWORD:-}" && -f "$CRED_FILE" ]]; then
     [[ -n "$DB_PASSWORD" ]] && info "Re-using the password stored in $CRED_FILE"
 fi
 if [[ -z "${DB_PASSWORD:-}" ]]; then
-    DB_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)Aa1"
+    # read a fixed number of bytes first so no pipe stage dies of SIGPIPE (fatal under pipefail)
+    DB_PASSWORD="$(head -c 512 /dev/urandom | tr -dc 'A-Za-z0-9' | cut -c1-20)Aa1"
     info "Generated a random password for MySQL user '$DB_USER'"
 fi
 (( ${#DB_PASSWORD} >= 8 )) || die "DB_PASSWORD must be at least 8 characters"
