@@ -37,6 +37,12 @@ public class ApiExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, "Malformed request.");
     }
 
+    @ExceptionHandler(org.springframework.dao.DataAccessResourceFailureException.class)
+    public ResponseEntity<Map<String, Object>> databaseDown(Exception e) {
+        log.error("API: database unavailable - {}", e.getMessage());
+        return body(HttpStatus.SERVICE_UNAVAILABLE, "Database unavailable. Please try again later.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> unexpected(Exception e) {
         log.error("API error", e);

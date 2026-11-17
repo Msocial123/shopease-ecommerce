@@ -48,8 +48,11 @@ public class RootConfig {
         cfg.setPassword(env.getProperty("db.password", ""));
         cfg.setMaximumPoolSize(env.getProperty("db.pool.max", Integer.class, 10));
         cfg.setMinimumIdle(env.getProperty("db.pool.minIdle", Integer.class, 2));
-        cfg.setConnectionTimeout(env.getProperty("db.pool.connectionTimeoutMs", Long.class, 30_000L));
+        cfg.setConnectionTimeout(env.getProperty("db.pool.connectionTimeoutMs", Long.class, 10_000L));
         cfg.setPoolName("ShopEasePool");
+        // Start even when MySQL is unreachable: the app then reports the problem on /health and
+        // on its error page instead of failing to deploy (which shows up as a bare Tomcat 404).
+        cfg.setInitializationFailTimeout(-1);
         cfg.addDataSourceProperty("cachePrepStmts", "true");
         cfg.addDataSourceProperty("prepStmtCacheSize", "250");
         cfg.addDataSourceProperty("useServerPrepStmts", "true");

@@ -44,12 +44,42 @@ public class DatabaseInitializer {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Value("${db.url:}")
+    private String dbUrl;
+    @Value("${db.username:}")
+    private String dbUser;
+
     @PostConstruct
     public void init() {
         if (!enabled) {
             log.info("Database initialisation disabled (app.db.init=false)");
             return;
         }
+        try {
+            initialise();
+        } catch (Exception e) {
+            // Keep the web app deployed so /health and the error pages can explain the problem.
+            log.error("""
+
+                    ************************************************************************
+                     ShopEase could not reach / initialise the database.
+                       URL : {}
+                       User: {}
+                       Cause: {}
+                     Check that MySQL is running and that db.url / db.username / db.password
+                     (or DB_URL / DB_USERNAME / DB_PASSWORD in Tomcat's bin/setenv.sh) are
+                     correct, then restart Tomcat. Status: GET /shopease/health
+                    ************************************************************************""",
+                    dbUrl, dbUser, rootCause(e).toString());
+        }
+    }
+
+    private static Throwable rootCause(Throwable t) {
+        while (t.getCause() != null && t.getCause() != t) t = t.getCause();
+        return t;
+    }
+
+    private void initialise() {
         log.info("Running schema.sql ...");
         ResourceDatabasePopulator schema = new ResourceDatabasePopulator(new ClassPathResource("db/schema.sql"));
         schema.setSqlScriptEncoding("UTF-8");

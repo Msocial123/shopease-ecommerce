@@ -64,6 +64,17 @@ public class GlobalControllerAdvice {
         return mv;
     }
 
+    @ExceptionHandler(org.springframework.dao.DataAccessResourceFailureException.class)
+    public ModelAndView databaseDown(Exception e, HttpServletRequest req, HttpServletResponse res) {
+        log.error("Database unavailable on {} {}: {}", req.getMethod(), req.getRequestURI(), e.getMessage());
+        res.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        ModelAndView mv = new ModelAndView("error/500");
+        mv.addObject("title", "Store temporarily unavailable");
+        mv.addObject("message", "We can't reach the store database right now. Please try again in a few minutes. "
+                + "(Administrators: check /health and the Tomcat log.)");
+        return mv;
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ModelAndView methodNotAllowed(HttpServletResponse res) {
         res.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
