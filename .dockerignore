@@ -1,0 +1,13 @@
+# Only pom.xml, src/ and docker/ are needed in the build context
+target/
+.git/
+.gitattributes
+.gitignore
+.idea/
+.vscode/
+*.iml
+*.docx
+deploy/
+README.md
+Dockerfile
+.dockerignore

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ShopEase - Tomcat 11 server.xml for containers.
+
+  Every ${NAME:-default} placeholder is filled from an ENVIRONMENT VARIABLE at start-up.
+  This works because the Dockerfile sets, in conf/catalina.properties:
+      org.apache.tomcat.util.digester.PROPERTY_SOURCE=org.apache.tomcat.util.digester.EnvironmentPropertySource
+  If a variable is not set, the value after ":-" is used.
+
+  Changes from the stock server.xml:
+    - shutdown port disabled (-1): containers are stopped with SIGTERM, not a socket command
+    - no AJP connector, only one HTTP connector whose port/threads/timeouts come from env vars
+    - global JNDI DataSource jdbc/ShopEaseDB (linked into the app by META-INF/context.xml)
+    - access log written to stdout so `docker logs` shows it
+    - error pages do not reveal the Tomcat version
+    - autoDeploy off: the image is immutable, nothing is hot-deployed at runtime
+-->
+<Server port="-1" shutdown="SHUTDOWN">
+
+  <Listener className="org.apache.catalina.startup.VersionLoggerListener" />
+  <Listener className="org.apache.catalina.core.AprLifecycleListener" />
+  <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener" />
+  <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
+  <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener" />
+
+  <GlobalNamingResources>
+    <!-- Tomcat-managed (DBCP2) connection pool. The MySQL driver is copied into $CATALINA_HOME/lib. -->
+    <Resource name="jdbc/ShopEaseDB"
+              auth="Container"
+              type="javax.sql.DataSource"
+              driverClassName="com.mysql.cj.jdbc.Driver"
+              url="${DB_URL:-jdbc:mysql://db:3306/shopease?createDatabaseIfNotExist=true&amp;useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC&amp;characterEncoding=UTF-8}"
+              username="${DB_USERNAME:-shopease}"
+              password="${DB_PASSWORD:-changeme}"
+              initialSize="${DB_POOL_MIN_IDLE:-2}"
+              minIdle="${DB_POOL_MIN_IDLE:-2}"
+              maxIdle="${DB_POOL_MAX:-10}"
+              maxTotal="${DB_POOL_MAX:-10}"
+              maxWaitMillis="${DB_POOL_CONNECTION_TIMEOUT_MS:-10000}"
+              validationQuery="SELECT 1"
+              testOnBorrow="true"
+              testWhileIdle="true"
+              timeBetweenEvictionRunsMillis="30000"
+              removeAbandonedOnBorrow="true"
+              removeAbandonedTimeout="60"
+              logAbandoned="true" />
+  </GlobalNamingResources>
+
+  <Service name="Catalina">
+
+    <Connector port="${TOMCAT_HTTP_PORT:-8080}"
+               protocol="HTTP/1.1"
+               connectionTimeout="${TOMCAT_CONNECTION_TIMEOUT:-20000}"
+               maxThreads="${TOMCAT_MAX_THREADS:-200}"
+               minSpareThreads="${TOMCAT_MIN_SPARE_THREADS:-10}"
+               acceptCount="${TOMCAT_ACCEPT_COUNT:-100}"
+               maxPostSize="${TOMCAT_MAX_POST_SIZE:-10485760}"
+               URIEncoding="UTF-8"
+               compression="on"
+               compressibleMimeType="text/html,text/css,text/javascript,application/javascript,application/json,image/svg+xml"
+               server="ShopEase"
+               xpoweredBy="false" />
+
+    <Engine name="Catalina" defaultHost="localhost">
+
+      <Host name="localhost" appBase="webapps"
+            unpackWARs="true" autoDeploy="false" deployOnStartup="true">
+
+        <!-- Trust X-Forwarded-For / X-Forwarded-Proto from a reverse proxy or load balancer -->
+        <Valve className="org.apache.catalina.valves.RemoteIpValve"
+               protocolHeader="X-Forwarded-Proto" />
+
+        <!-- Access log to stdout (container log stream) instead of files inside the container -->
+        <Valve className="org.apache.catalina.valves.AccessLogValve"
+               directory="/dev" prefix="stdout" suffix="" fileDateFormat=""
+               rotatable="false" buffered="false"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b %Dms" />
+
+        <!-- Hide stack traces and server version on Tomcat's own error pages -->
+        <Valve className="org.apache.catalina.valves.ErrorReportValve"
+               showReport="false" showServerInfo="false" />
+      </Host>
+    </Engine>
+  </Service>
+</Server>
