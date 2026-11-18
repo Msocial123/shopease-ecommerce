@@ -7,3 +7,8 @@ target/
 .settings/
 .classpath
 .project
+
+# Filled-in container settings (secrets) - template is docker/shopease.env.example
+shopease.env
+*.env
+!*.env.example

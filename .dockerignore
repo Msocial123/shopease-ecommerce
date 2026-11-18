@@ -11,3 +11,4 @@ deploy/
 README.md
 Dockerfile
 .dockerignore
+*.env
