@@ -7,6 +7,7 @@ import com.shopease.model.Category;
 import com.shopease.model.OrderStatus;
 import com.shopease.model.Product;
 import com.shopease.service.CatalogService;
+import com.shopease.service.ImageStorage;
 import com.shopease.service.OrderService;
 import com.shopease.service.UserService;
 import com.shopease.web.WebUtils;
@@ -22,7 +23,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.io.IOException;
 
 import java.math.BigDecimal;
 
@@ -38,14 +42,16 @@ public class AdminController {
     private final UserService userService;
     private final OrderDao orderDao;
     private final ProductDao productDao;
+    private final ImageStorage imageStorage;
 
     public AdminController(CatalogService catalogService, OrderService orderService, UserService userService,
-                           OrderDao orderDao, ProductDao productDao) {
+                           OrderDao orderDao, ProductDao productDao, ImageStorage imageStorage) {
         this.catalogService = catalogService;
         this.orderService = orderService;
         this.userService = userService;
         this.orderDao = orderDao;
         this.productDao = productDao;
+        this.imageStorage = imageStorage;
     }
 
     /** Restrict which Product fields can be bound from the form (no mass-assignment of createdAt etc.). */
@@ -109,12 +115,21 @@ public class AdminController {
     }
 
     @PostMapping("/products/save")
-    public String saveProduct(@ModelAttribute("product") Product product, Model model, RedirectAttributes ra) {
+    public String saveProduct(@ModelAttribute("product") Product product,
+                              @RequestParam(value = "imageFile", required = false) MultipartFile imageFile,
+                              Model model, RedirectAttributes ra) {
+        String uploaded = null;
         try {
+            if (imageFile != null && !imageFile.isEmpty()) {
+                uploaded = imageStorage.storeProductImage(imageFile.getBytes());
+                product.setImageUrl(uploaded);
+            }
             catalogService.saveProduct(product);
-            ra.addFlashAttribute("success", "Product \"" + product.getName() + "\" saved.");
+            ra.addFlashAttribute("success", "Product \"" + product.getName() + "\" saved"
+                    + (uploaded != null ? " with the uploaded image." : "."));
             return "redirect:/admin/products";
-        } catch (BusinessException e) {
+        } catch (BusinessException | IOException e) {
+            imageStorage.delete(uploaded); // don't keep an image for a product that was not saved
             model.addAttribute("error", e.getMessage());
             model.addAttribute("adminSection", "products");
             return "admin/product-form";

@@ -89,8 +89,10 @@ public class ProductDao {
             sb.append(" AND p.active = TRUE");
         }
         if (c.query() != null && !c.query().isBlank()) {
-            sb.append(" AND (p.name LIKE :q OR p.brand LIKE :q OR p.description LIKE :q OR p.sku LIKE :q OR c.name LIKE :q)");
-            params.addValue("q", "%" + escapeLike(c.query().trim()) + "%");
+            // LOWER(..) keeps the search case-insensitive on PostgreSQL too
+            sb.append(" AND (LOWER(p.name) LIKE :q OR LOWER(p.brand) LIKE :q OR LOWER(p.description) LIKE :q " +
+                    "OR LOWER(p.sku) LIKE :q OR LOWER(c.name) LIKE :q)");
+            params.addValue("q", "%" + escapeLike(c.query().trim().toLowerCase(java.util.Locale.ROOT)) + "%");
         }
         if (c.categoryId() != null) {
             sb.append(" AND p.category_id = :cat");

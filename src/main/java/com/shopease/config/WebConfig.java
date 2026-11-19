@@ -3,6 +3,7 @@ package com.shopease.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
@@ -12,6 +13,8 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartResolver;
+import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewResolverRegistry;
@@ -32,6 +35,12 @@ import java.util.concurrent.TimeUnit;
         includeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION,
                 classes = {Controller.class, RestController.class, ControllerAdvice.class}))
 public class WebConfig implements WebMvcConfigurer {
+
+    /** Uses the Servlet container's multipart support (limits set in AppInitializer) for MultipartFile parameters. */
+    @Bean
+    public MultipartResolver multipartResolver() {
+        return new StandardServletMultipartResolver();
+    }
 
     @Override
     public void configureViewResolvers(ViewResolverRegistry registry) {

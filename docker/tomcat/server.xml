@@ -28,7 +28,7 @@
     <Resource name="jdbc/ShopEaseDB"
               auth="Container"
               type="javax.sql.DataSource"
-              driverClassName="com.mysql.cj.jdbc.Driver"
+              driverClassName="${DB_DRIVER:-com.mysql.cj.jdbc.Driver}"
               url="${DB_URL:-jdbc:mysql://shopease-db:3306/shopease?createDatabaseIfNotExist=true&amp;useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=UTC&amp;characterEncoding=UTF-8}"
               username="${DB_USERNAME:-shopease}"
               password="${DB_PASSWORD:-changeme}"
@@ -70,11 +70,17 @@
         <Valve className="org.apache.catalina.valves.RemoteIpValve"
                protocolHeader="X-Forwarded-Proto" />
 
-        <!-- Access log to stdout (container log stream) instead of files inside the container -->
+        <!-- Access log to stdout (container log stream: docker/podman logs) -->
         <Valve className="org.apache.catalina.valves.AccessLogValve"
                directory="/dev" prefix="stdout" suffix="" fileDateFormat=""
                rotatable="false" buffered="false"
-               pattern="%h %l %u %t &quot;%r&quot; %s %b %Dms" />
+               pattern="%h %l %u %t &quot;%r&quot; %s %b %{ms}Tms" />
+
+        <!-- ...and to a daily file in logs/, so request history survives container re-creation
+             when logs/ is a volume or bind mount (see docker-compose.yml) -->
+        <Valve className="org.apache.catalina.valves.AccessLogValve"
+               directory="logs" prefix="localhost_access_log" suffix=".txt" buffered="false"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b %{ms}Tms" />
 
         <!-- Hide stack traces and server version on Tomcat's own error pages -->
         <Valve className="org.apache.catalina.valves.ErrorReportValve"

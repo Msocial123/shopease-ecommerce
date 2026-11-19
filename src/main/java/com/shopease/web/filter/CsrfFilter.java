@@ -35,7 +35,10 @@ public class CsrfFilter extends HttpFilter {
     @Override
     protected void doFilter(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws IOException, ServletException {
         String path = req.getRequestURI().substring(req.getContextPath().length());
-        if (path.startsWith("/assets/") || path.startsWith("/images/")) {
+        // Static files, uploaded images and the health probe need no session (a session per
+        // health check would pile up thousands of idle sessions).
+        if (path.startsWith("/assets/") || path.startsWith("/images/") || path.startsWith("/uploads/")
+                || path.equals("/health")) {
             chain.doFilter(req, res);
             return;
         }

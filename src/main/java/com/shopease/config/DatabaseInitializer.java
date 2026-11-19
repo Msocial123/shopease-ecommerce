@@ -29,6 +29,7 @@ public class DatabaseInitializer {
     private final JdbcTemplate jdbc;
     private final UserDao userDao;
     private final PasswordEncoder passwordEncoder;
+    private final DbDialect dialect;
 
     @Value("${app.db.init:true}")
     private boolean enabled;
@@ -37,11 +38,13 @@ public class DatabaseInitializer {
     @Value("${app.admin.password:Admin@123}")
     private String adminPassword;
 
-    public DatabaseInitializer(DataSource dataSource, JdbcTemplate jdbc, UserDao userDao, PasswordEncoder passwordEncoder) {
+    public DatabaseInitializer(DataSource dataSource, JdbcTemplate jdbc, UserDao userDao, PasswordEncoder passwordEncoder,
+                               DbDialect dialect) {
         this.dataSource = dataSource;
         this.jdbc = jdbc;
         this.userDao = userDao;
         this.passwordEncoder = passwordEncoder;
+        this.dialect = dialect;
     }
 
     @Value("#{dataSourceDescription}")
@@ -66,7 +69,7 @@ public class DatabaseInitializer {
                        Source: {}
                        User  : {}
                        Cause : {}
-                     Check that MySQL is running and that the connection settings are correct:
+                     Check that the database (MySQL or PostgreSQL) is running and that the connection settings are correct:
                      the jdbc/ShopEaseDB <Resource> in Tomcat's conf/server.xml, or else
                      db.url / db.username / db.password (DB_* in bin/setenv.sh).
                      Then restart Tomcat. Status: GET /shopease/health
@@ -82,8 +85,10 @@ public class DatabaseInitializer {
     }
 
     private void initialise() {
-        log.info("Running schema.sql ...");
-        ResourceDatabasePopulator schema = new ResourceDatabasePopulator(new ClassPathResource("db/schema.sql"));
+        boolean postgres = dialect.isPostgres();
+        String schemaFile = postgres ? "db/schema-postgresql.sql" : "db/schema.sql";
+        log.info("Running {} ...", schemaFile);
+        ResourceDatabasePopulator schema = new ResourceDatabasePopulator(new ClassPathResource(schemaFile));
         schema.setSqlScriptEncoding("UTF-8");
         schema.execute(dataSource);
 
@@ -93,6 +98,11 @@ public class DatabaseInitializer {
             ResourceDatabasePopulator data = new ResourceDatabasePopulator(new ClassPathResource("db/data.sql"));
             data.setSqlScriptEncoding("UTF-8");
             data.execute(dataSource);
+            if (postgres) {
+                // data.sql inserts categories with explicit ids; move the identity sequence past them
+                jdbc.queryForObject("SELECT setval(pg_get_serial_sequence('categories', 'id'), " +
+                        "(SELECT MAX(id) FROM categories))", Long.class);
+            }
         }
 
         if (userDao.findByEmail(adminEmail).isEmpty()) {

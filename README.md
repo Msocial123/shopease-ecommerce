@@ -162,6 +162,17 @@ Copy `target/shopease.war` into `%CATALINA_HOME%\webapps\` and start Tomcat (`bi
 
 **Default admin login:** `admin@shopease.com` / `Admin@123`. It is created on first start; change it with `app.admin.*` before going live.
 
+### Option: containers with Docker Compose (Tomcat + PostgreSQL)
+
+```bash
+cp .env.example .env   # set the passwords
+docker compose up -d --build        # or: podman-compose up -d --build
+```
+
+Store at http://localhost:8081/. Uses named volumes (PostgreSQL data, uploaded images), a bind mount
+(Tomcat logs in `./logs/tomcat`) and tmpfs (Tomcat temp/work), with backup and restore scripts in
+`docker/volumes/`. Full walkthrough: [docker/COMPOSE.md](docker/COMPOSE.md).
+
 ## Test payment data (simulated gateway)
 
 | Method | Succeeds | Declined |

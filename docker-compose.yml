@@ -1,0 +1,158 @@
+# =====================================================================================
+#  ShopEase - Tomcat 11 + PostgreSQL with Docker Compose (also works with Podman)
+#
+#    cp .env.example .env            # set the passwords
+#    docker compose up -d --build    # or: podman-compose up -d --build
+#    open http://<host>:8081/        # HTTP_PORT in .env
+#
+#  Storage used by this file
+#  ---------------------------------------------------------------------------------
+#  | Kind        | Name / host path        | Mounted at                    | Why              |
+#  |-------------|-------------------------|-------------------------------|------------------|
+#  | named volume| shopease-pgdata         | db:/var/lib/postgresql/data   | database files   |
+#  | named volume| shopease-uploads        | app:/usr/local/tomcat/uploads | uploaded images  |
+#  | bind mount  | ./logs/tomcat           | app:/usr/local/tomcat/logs    | logs on the host |
+#  | bind mount  | ./backups               | backup / restore helpers      | backup files     |
+#  | tmpfs       | (RAM)                   | app: temp, work  db: /tmp     | scratch files    |
+#
+#  Backup / restore of the volumes:  docker/volumes/backup.sh  and  docker/volumes/restore.sh
+#  (they drive the "ops" profile services at the end of this file). See docker/COMPOSE.md.
+# =====================================================================================
+
+name: shopease
+
+services:
+
+  # -----------------------------------------------------------------------------------
+  #  PostgreSQL with a NAMED VOLUME
+  #  The data directory lives in the volume "shopease-pgdata", managed by the engine
+  #  (/var/lib/docker/volumes/... or ~/.local/share/containers/storage/volumes/...).
+  #  It survives "compose down" and image upgrades; only "compose down -v" deletes it.
+  #  On first start (empty volume) the image creates POSTGRES_DB / POSTGRES_USER.
+  #  postgres:17 is used on purpose: from 18 on the image expects the volume at
+  #  /var/lib/postgresql instead of /var/lib/postgresql/data.
+  # -----------------------------------------------------------------------------------
+  db:
+    image: docker.io/library/postgres:17-alpine
+    container_name: shopease-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shopease
+      POSTGRES_USER: shopease
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777            # sort/scratch files never touch the disk
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopease -d shopease -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [backend]
+    # no "ports:" - the database is reachable only from the app on the backend network
+
+  # -----------------------------------------------------------------------------------
+  #  One-shot helper: prepares the logs BIND MOUNT
+  #  A bind-mounted host folder keeps its host owner, but Tomcat runs as UID 10001 and
+  #  must be able to write there. This runs once as root, sets the owner, and exits.
+  # -----------------------------------------------------------------------------------
+  logs-init:
+    image: docker.io/library/busybox:1.37
+    user: "0:0"
+    command: ["sh", "-c", "chown 10001:10001 /logs && chmod 755 /logs"]
+    volumes:
+      - ./logs/tomcat:/logs
+    restart: "no"
+
+  # -----------------------------------------------------------------------------------
+  #  Tomcat 11 + ShopEase (image built from the multi-stage Dockerfile)
+  # -----------------------------------------------------------------------------------
+  app:
+    build: .
+    image: localhost/shopease:1.1.0
+    container_name: shopease-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      logs-init:
+        condition: service_completed_successfully
+    environment:
+      # server.xml JNDI pool -> PostgreSQL
+      DB_DRIVER: org.postgresql.Driver
+      DB_URL: jdbc:postgresql://db:5432/shopease
+      DB_USERNAME: shopease
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@shopease.com}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?Set APP_ADMIN_PASSWORD in .env (see .env.example)}
+      APP_UPLOAD_DIR: /usr/local/tomcat/uploads
+      TZ: ${TZ:-UTC}
+      UMASK: "0022"                        # log files readable on the host (Tomcat default is 0027)
+    ports:
+      - "${HTTP_PORT:-8081}:8080"
+    volumes:
+      # NAMED VOLUME: uploaded product images survive container re-creation / image upgrades
+      - uploads:/usr/local/tomcat/uploads
+      # BIND MOUNT: catalina.*.log, localhost.*.log, access logs appear in ./logs/tomcat on the host
+      - ./logs/tomcat:/usr/local/tomcat/logs
+    tmpfs:
+      # TMPFS: in-memory, wiped on every restart - right for scratch data only
+      - /usr/local/tomcat/temp:size=128m,mode=1777   # multipart upload buffers, temp files
+      - /usr/local/tomcat/work:size=128m,mode=1777   # compiled JSPs (re-created on start)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks: [backend]
+
+  # ===================================================================================
+  #  "ops" profile - not started by "up"; run on demand (wrapped by docker/volumes/*.sh)
+  # ===================================================================================
+
+  #  (The online database dump needs no extra service: backup.sh runs pg_dump inside the
+  #   running db container with "compose exec -T db pg_dump ...".)
+
+  # File-level backup of both named volumes into ./backups (stop app + db first for pgdata)
+  backup:
+    image: docker.io/library/busybox:1.37
+    profiles: ["ops"]
+    user: "0:0"
+    network_mode: none                     # only touches files - no network needed
+    environment:
+      STAMP: ${STAMP:-manual}
+    volumes:
+      - pgdata:/volumes/pgdata:ro
+      - uploads:/volumes/uploads:ro
+      - ./backups:/backups
+    command: ["sh", "-c", "set -e; for v in pgdata uploads; do tar czf /backups/$${v}-$${STAMP}.tar.gz -C /volumes/$${v} . && echo created $${v}-$${STAMP}.tar.gz; done"]
+    restart: "no"
+
+  # Restores both named volumes from ./backups/<volume>-$STAMP.tar.gz (app + db must be stopped)
+  restore:
+    image: docker.io/library/busybox:1.37
+    profiles: ["ops"]
+    user: "0:0"
+    network_mode: none
+    environment:
+      STAMP: ${STAMP:-}
+    volumes:
+      - pgdata:/volumes/pgdata
+      - uploads:/volumes/uploads
+      - ./backups:/backups:ro
+    command: ["sh", "-c", "set -e; for v in pgdata uploads; do f=/backups/$${v}-$${STAMP}.tar.gz; test -f $$f || { echo missing $$f; exit 1; }; done; for v in pgdata uploads; do rm -rf /volumes/$${v}/* /volumes/$${v}/.[!.]*; tar xzf /backups/$${v}-$${STAMP}.tar.gz -C /volumes/$${v}; echo restored $${v}; done"]
+    restart: "no"
+
+volumes:
+  pgdata:
+    name: shopease-pgdata        # fixed names: easy to find with "volume ls" and in the scripts
+  uploads:
+    name: shopease-uploads
+
+networks:
+  backend:
+    name: shopease-backend

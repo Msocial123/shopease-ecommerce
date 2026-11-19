@@ -9,7 +9,7 @@
         <h1 class="page-title"><c:out value="${pageTitle}"/></h1>
         <c:if test="${not empty error}"><div class="notice notice-error"><c:out value="${error}"/></div></c:if>
 
-        <form action="${ctx}/admin/products/save" method="post" class="card product-form">
+        <form action="${ctx}/admin/products/save" method="post" enctype="multipart/form-data" class="card product-form">
             <se:csrf/>
             <c:if test="${not empty product.id}"><input type="hidden" name="id" value="${product.id}"></c:if>
             <div class="form-grid">
@@ -36,6 +36,8 @@
                     <input type="number" name="stock" required min="0" step="1" value="${product.stock}"></label>
                 <label class="field"><span>Image URL</span>
                     <input type="text" name="imageUrl" maxlength="500" placeholder="https://... (leave empty for auto image)" value="<c:out value='${product.imageUrl}'/>"></label>
+                <label class="field"><span>Upload image (JPG, PNG, GIF, WEBP &ndash; max 5 MB)</span>
+                    <input type="file" name="imageFile" accept="image/jpeg,image/png,image/gif,image/webp"></label>
                 <label class="field span-2"><span>Description</span>
                     <textarea name="description" rows="5"><c:out value="${product.description}"/></textarea></label>
                 <label class="check"><input type="hidden" name="_featured" value="on">

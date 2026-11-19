@@ -12,3 +12,7 @@ target/
 shopease.env
 *.env
 !*.env.example
+
+# docker-compose runtime folders (bind mounts)
+logs/
+backups/

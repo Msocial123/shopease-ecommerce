@@ -12,3 +12,6 @@ README.md
 Dockerfile
 .dockerignore
 *.env
+logs/
+backups/
+.env

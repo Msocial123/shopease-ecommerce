@@ -62,10 +62,10 @@ ARG SKIP_TESTS=false
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q package -DskipTests=${SKIP_TESTS} \
  && mvn -B -q dependency:copy-dependencies \
-        -DincludeArtifactIds=mysql-connector-j \
+        -DincludeArtifactIds=mysql-connector-j,postgresql \
         -DexcludeTransitive=true \
         -DoutputDirectory=target/jdbc
-# Output: target/shopease.war  +  target/jdbc/mysql-connector-j-<version>.jar
+# Output: target/shopease.war  +  target/jdbc/{mysql-connector-j,postgresql}-<version>.jar
 
 
 # =====================================================================================
@@ -77,7 +77,7 @@ FROM ${TOMCAT_IMAGE}:${TOMCAT_TAG} AS deploy
 
 LABEL org.opencontainers.image.title="ShopEase" \
       org.opencontainers.image.description="ShopEase e-commerce WAR on Apache Tomcat 11" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="1.1.0" \
       org.opencontainers.image.source="https://github.com/Msocial123/shopease-ecommerce"
 
 # curl is needed by the HEALTHCHECK (installed only if the base image lacks it)
@@ -111,8 +111,9 @@ COPY --from=build --chown=tomcat:tomcat /workspace/target/shopease.war "$CATALIN
 #  (a) docker/tomcat/server.xml replaces the stock file. Its values are ${ENV_VAR:-default}
 #      placeholders: HTTP connector (port, threads, timeouts) and the global JNDI DataSource
 #      jdbc/ShopEaseDB (DB_URL, DB_USERNAME, DB_PASSWORD, pool sizes).
-#  (b) The MySQL driver goes into $CATALINA_HOME/lib: Tomcat creates the JNDI pool itself,
-#      before the web app (and the driver inside the WAR) is loaded.
+#  (b) The MySQL and PostgreSQL drivers go into $CATALINA_HOME/lib: Tomcat creates the JNDI
+#      pool itself, before the web app (and the drivers inside the WAR) is loaded.
+#      DB_DRIVER selects the driver class (default MySQL; docker-compose.yml uses PostgreSQL).
 #  (c) By default Tomcat fills ${...} in server.xml only from Java system properties.
 #      EnvironmentPropertySource makes it read OS environment variables as well.
 #
@@ -135,6 +136,7 @@ ENV TOMCAT_HTTP_PORT=8080 \
     DB_POOL_MAX=10 \
     DB_POOL_MIN_IDLE=2 \
     APP_DB_INIT=true \
+    APP_UPLOAD_DIR=/usr/local/tomcat/uploads \
     TZ=UTC \
     JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom -Dfile.encoding=UTF-8"
 
@@ -143,18 +145,21 @@ ENV TOMCAT_HTTP_PORT=8080 \
 #  NON-ROOT USER
 #
 #  writable by tomcat : webapps (WAR unpack), work (compiled JSPs), temp, logs,
-#                       conf/Catalina/localhost (Tomcat uses it at start-up)
+#                       uploads (product images), conf/Catalina/localhost (used at start-up)
+#  logs and uploads are created here owned by tomcat: an empty named volume mounted on them
+#  copies this ownership, so the non-root user can write to the volume.
 #  read-only          : the rest of conf/ (owner root, group tomcat r-x), so the running
 #                       app cannot rewrite server.xml or catalina.properties
 #  USER is numeric so Kubernetes `runAsNonRoot: true` can verify it. Port 8080 is above
 #  1024, so binding it needs no root privileges.
 # =====================================================================================
-RUN mkdir -p "$CATALINA_HOME/conf/Catalina/localhost" \
+RUN mkdir -p "$CATALINA_HOME/conf/Catalina/localhost" "$CATALINA_HOME/uploads" \
  && chown -R root:tomcat "$CATALINA_HOME/conf" \
  && chmod -R u=rwX,g=rX,o= "$CATALINA_HOME/conf" \
  && chown -R tomcat:tomcat "$CATALINA_HOME/conf/Catalina" \
                            "$CATALINA_HOME/webapps" "$CATALINA_HOME/work" \
-                           "$CATALINA_HOME/temp"    "$CATALINA_HOME/logs"
+                           "$CATALINA_HOME/temp"    "$CATALINA_HOME/logs" \
+                           "$CATALINA_HOME/uploads"
 
 USER 10001:10001
 EXPOSE 8080

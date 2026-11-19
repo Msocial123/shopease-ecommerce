@@ -115,7 +115,8 @@ public class OrderDao {
 
     /** Locks the order row for the rest of the transaction (prevents double payment / double cancel). */
     public Optional<Order> findByNumberForUpdate(String orderNumber) {
-        return jdbc.query(BASE_SELECT + "WHERE o.order_number = ? FOR UPDATE", MAPPER, orderNumber).stream().findFirst();
+        // "FOR UPDATE OF o" locks only the orders row; valid in MySQL 8+ and PostgreSQL
+        return jdbc.query(BASE_SELECT + "WHERE o.order_number = ? FOR UPDATE OF o", MAPPER, orderNumber).stream().findFirst();
     }
 
     public List<OrderItem> findItems(long orderId) {
@@ -147,18 +148,20 @@ public class OrderDao {
             p.addValue("status", status.name());
         }
         if (query != null && !query.isBlank()) {
-            sb.append(" AND (o.order_number LIKE :q OR u.email LIKE :q OR u.full_name LIKE :q)");
-            p.addValue("q", "%" + query.trim() + "%");
+            // LOWER(..) keeps the search case-insensitive on PostgreSQL too
+            sb.append(" AND (LOWER(o.order_number) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.full_name) LIKE :q)");
+            p.addValue("q", "%" + query.trim().toLowerCase(java.util.Locale.ROOT) + "%");
         }
         return sb.toString();
     }
 
     public void updateStatus(long orderId, OrderStatus status) {
-        jdbc.update("UPDATE orders SET status = ? WHERE id = ?", status.name(), orderId);
+        // updated_at is set explicitly: PostgreSQL has no ON UPDATE CURRENT_TIMESTAMP
+        jdbc.update("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", status.name(), orderId);
     }
 
     public void updatePaymentMethod(long orderId, PaymentMethod method) {
-        jdbc.update("UPDATE orders SET payment_method = ? WHERE id = ?", method.name(), orderId);
+        jdbc.update("UPDATE orders SET payment_method = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", method.name(), orderId);
     }
 
     public BigDecimal revenue() {

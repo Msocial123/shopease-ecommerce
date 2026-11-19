@@ -24,6 +24,7 @@
         <jstl-api.version>3.0.2</jstl-api.version>
         <jstl-impl.version>3.0.1</jstl-impl.version>
         <mysql.version>9.4.0</mysql.version>
+        <postgresql.version>42.7.7</postgresql.version>
         <hikari.version>6.3.0</hikari.version>
         <slf4j.version>2.0.17</slf4j.version>
         <junit.version>5.12.2</junit.version>
@@ -117,6 +118,12 @@
                     <artifactId>protobuf-java</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <!-- PostgreSQL JDBC driver: lets the same WAR run against PostgreSQL (docker-compose.yml) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
         </dependency>
         <dependency>
             <groupId>com.zaxxer</groupId>
