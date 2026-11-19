@@ -158,7 +158,44 @@ docker compose down -v                     # containers AND volumes deleted
 
 Copy `./backups` off the server (scp, S3, ...) – a backup on the same disk is not a backup.
 
-## 6. Useful commands
+## 6. Troubleshooting
+
+### `UnknownHostException: db` – app shows 503 "Database unavailable"
+
+```
+ERROR GlobalControllerAdvice - Database unavailable on GET /: Failed to obtain JDBC Connection
+WARN  ShopEasePool - Pool is empty, failed to create/setup connection
+Caused by: java.net.UnknownHostException: db
+```
+
+**Cause:** the app container could not look up the name `db`. Seen with **root Podman**
+(`sudo podman-compose`) on a host where **ufw is enabled** (Day 1 guide): ufw drops the DNS
+queries that containers send to the Podman bridge gateway (`/var/log/ufw.log` shows
+`UFW BLOCK IN=podmanN ... DST=10.89.x.1 ... DPT=53`). Because the pool in server.xml cannot be
+created, the app falls back to its own pool (`ShopEasePool`), which fails the same way, and
+`/health` shows `"dataSource":"hikari:..."` with `"database":"DOWN"`.
+
+**Fix (already in docker-compose.yml):** `db` has a fixed IP on the backend network
+(`DB_IP`, default `10.123.45.10`) and the app gets `extra_hosts: db:<that IP>`, i.e. an entry in
+its `/etc/hosts`. No DNS lookup is needed any more, and the firewall stays as it is. The image is
+also built with `network: host`, because the same ufw rule broke Maven downloads during the build.
+
+If you started the stack with an older version of this file, re-create the network once
+(volumes and data are kept):
+
+```bash
+docker compose down                    # sudo podman-compose down
+docker network rm shopease-backend     # sudo podman network rm shopease-backend
+docker compose up -d --build
+docker exec shopease-app getent hosts db        # -> 10.123.45.10  db
+curl -s http://localhost:8081/health            # -> "database":"UP", "dataSource":"jndi:..."
+```
+
+`subnet 10.123.45.0/24 is already used on the host` → another network uses it (for example a
+second ShopEase stack): set `BACKEND_SUBNET` and `DB_IP` in `.env`, e.g. `10.123.46.0/24` and
+`10.123.46.10`.
+
+## 7. Useful commands
 
 ```bash
 docker compose logs -f app                 # container log stream
