@@ -1,0 +1,41 @@
+# Topics: Deployments + Rolling updates and rollbacks   (ShopEase version 1)
+# Deployment -> ReplicaSet -> Pods. Changing the pod template (e.g. the image tag) creates a
+# NEW ReplicaSet and swaps pods gradually = rolling update without downtime.
+#
+# ConfigMap + Secret as ENV VARS (envFrom) and as VOLUMES (/config, /etc/shopease-secret).
+# Uploaded images go to the shared NFS PVC (03-nfs-pv-pvc.yaml) - every replica sees them.
+#
+#   kubectl apply -f 07-deployment.yaml
+#   kubectl get deploy,rs,pods -l app=shopease
+#   kubectl apply -f 08-deployment-v2.yaml               # rolling update to v2
+#   kubectl rollout status  deployment/shopease
+#   kubectl rollout history deployment/shopease
+#   kubectl rollout undo    deployment/shopease          # rollback to the previous revision
+#   kubectl rollout undo    deployment/shopease --to-revision=1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopease
+  annotations:
+    kubernetes.io/change-cause: "v1.0.0 - first release"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1           # one extra pod during the update
+      maxUnavailable: 0     # never fewer than 2 running pods
+  selector:
+    matchLabels:
+      app: shopease
+  template:
+    metadata:
+      labels:
+        app: shopease
+    spec:
+      containers:
+        - name: shopease
+          image: muralisocial123/shopease:v1.0.0
+          ports:
+            - containerPort: 8080
+          
