@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fitness-deployment-test
+  name: fitness-deployment
   annotations:
     kubernetes.io/change-cause: "v2.0.0 - probes and resource limits"
 spec:
