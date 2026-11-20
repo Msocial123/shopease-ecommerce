@@ -12,11 +12,11 @@
 #  | named volume| shopease-pgdata         | db:/var/lib/postgresql/data   | database files   |
 #  | named volume| shopease-uploads        | app:/usr/local/tomcat/uploads | uploaded images  |
 #  | bind mount  | ./logs/tomcat           | app:/usr/local/tomcat/logs    | logs on the host |
-#  | bind mount  | ./backups               | backup / restore helpers      | backup files     |
+#  | bind mount  | ./backups               | backup / restore containers   | backup files     |
 #  | tmpfs       | (RAM)                   | app: temp, work  db: /tmp     | scratch files    |
 #
 #  Backup / restore of the volumes:  docker/volumes/backup.sh  and  docker/volumes/restore.sh
-#  (they drive the "ops" profile services at the end of this file). See docker/COMPOSE.md.
+#  See docker/COMPOSE.md.
 # =====================================================================================
 
 name: shopease
@@ -51,9 +51,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    networks:
-      backend:
-        ipv4_address: ${DB_IP:-10.123.45.10}   # fixed address, see "extra_hosts" on the app
+    networks: [backend]
     # no "ports:" - the database is reachable only from the app on the backend network
 
   # -----------------------------------------------------------------------------------
@@ -114,50 +112,13 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    # "db" is written into the app's /etc/hosts, so the JDBC URL jdbc:postgresql://db:5432 works
-    # even when the engine's container DNS is unavailable - e.g. root Podman on a host with
-    # "ufw enable", where ufw drops DNS queries to the bridge gateway and the app failed with
-    # "java.net.UnknownHostException: db".
-    extra_hosts:
-      - "db:${DB_IP:-10.123.45.10}"
+    # The app reaches PostgreSQL by its service name "db" (container DNS on the backend network).
     networks: [backend]
 
-  # ===================================================================================
-  #  "ops" profile - not started by "up"; run on demand (wrapped by docker/volumes/*.sh)
-  # ===================================================================================
-
-  #  (The online database dump needs no extra service: backup.sh runs pg_dump inside the
-  #   running db container with "compose exec -T db pg_dump ...".)
-
-  # File-level backup of both named volumes into ./backups (stop app + db first for pgdata)
-  backup:
-    image: docker.io/library/busybox:1.37
-    profiles: ["ops"]
-    user: "0:0"
-    network_mode: none                     # only touches files - no network needed
-    environment:
-      STAMP: ${STAMP:-manual}
-    volumes:
-      - pgdata:/volumes/pgdata:ro
-      - uploads:/volumes/uploads:ro
-      - ./backups:/backups
-    command: ["sh", "-c", "set -e; for v in pgdata uploads; do tar czf /backups/$${v}-$${STAMP}.tar.gz -C /volumes/$${v} . && echo created $${v}-$${STAMP}.tar.gz; done"]
-    restart: "no"
-
-  # Restores both named volumes from ./backups/<volume>-$STAMP.tar.gz (app + db must be stopped)
-  restore:
-    image: docker.io/library/busybox:1.37
-    profiles: ["ops"]
-    user: "0:0"
-    network_mode: none
-    environment:
-      STAMP: ${STAMP:-}
-    volumes:
-      - pgdata:/volumes/pgdata
-      - uploads:/volumes/uploads
-      - ./backups:/backups:ro
-    command: ["sh", "-c", "set -e; for v in pgdata uploads; do f=/backups/$${v}-$${STAMP}.tar.gz; test -f $$f || { echo missing $$f; exit 1; }; done; for v in pgdata uploads; do rm -rf /volumes/$${v}/* /volumes/$${v}/.[!.]*; tar xzf /backups/$${v}-$${STAMP}.tar.gz -C /volumes/$${v}; echo restored $${v}; done"]
-    restart: "no"
+  #  Backup / restore of the volumes: docker/volumes/backup.sh and restore.sh run throw-away
+  #  containers ("docker/podman run --rm -v shopease-pgdata:... busybox tar ...") - they are
+  #  deliberately NOT services here, so "compose up" can never start a restore by accident
+  #  (older podman-compose versions ignore "profiles:").
 
 volumes:
   pgdata:
@@ -168,6 +129,3 @@ volumes:
 networks:
   backend:
     name: shopease-backend
-    ipam:
-      config:
-        - subnet: ${BACKEND_SUBNET:-10.123.45.0/24}   # change in .env if it clashes with your LAN/VPC

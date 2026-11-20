@@ -13,7 +13,7 @@ if [ -z "${COMPOSE:-}" ]; then
     fi
 fi
 ENGINE=docker
-case "$COMPOSE" in podman*) ENGINE=podman ;; esac
+case "$COMPOSE" in *podman*) ENGINE=podman ;; esac
 echo "[compose] using: $COMPOSE ($ENGINE)"
 
 # Waits until a container reports "healthy" (max ~3 minutes).

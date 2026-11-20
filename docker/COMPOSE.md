@@ -136,9 +136,9 @@ SHA256SUMS-20261119-104012          checked again before every restore
 **Why the database is stopped for the volume archive:** copying PostgreSQL's files while it writes
 can give an inconsistent copy. `pg_dump` is consistent while running – that's why both exist.
 
-The archive and restore steps are the compose services `backup` / `restore` (profile `ops`, never
-started by `up`). Under the hood it is the classic pattern – a throw-away container that mounts the
-volume and a host folder and runs `tar`:
+The archive and restore steps use the classic pattern – a throw-away container that mounts the
+volume and a host folder and runs `tar` (the scripts do exactly this; they are not compose services,
+so `compose up` can never start a restore by accident):
 
 ```bash
 docker run --rm --network none \
@@ -175,25 +175,38 @@ queries that containers send to the Podman bridge gateway (`/var/log/ufw.log` sh
 created, the app falls back to its own pool (`ShopEasePool`), which fails the same way, and
 `/health` shows `"dataSource":"hikari:..."` with `"database":"DOWN"`.
 
-**Fix (already in docker-compose.yml):** `db` has a fixed IP on the backend network
-(`DB_IP`, default `10.123.45.10`) and the app gets `extra_hosts: db:<that IP>`, i.e. an entry in
-its `/etc/hosts`. No DNS lookup is needed any more, and the firewall stays as it is. The image is
-also built with `network: host`, because the same ufw rule broke Maven downloads during the build.
-
-If you started the stack with an older version of this file, re-create the network once
-(volumes and data are kept):
+**Fix (once per host, ufw only):** let containers on the Podman/Docker networks use DNS, and
+re-create the stack:
 
 ```bash
-docker compose down                    # sudo podman-compose down
-docker network rm shopease-backend     # sudo podman network rm shopease-backend
-docker compose up -d --build
-docker exec shopease-app getent hosts db        # -> 10.123.45.10  db
-curl -s http://localhost:8081/health            # -> "database":"UP", "dataSource":"jndi:..."
+sudo ufw allow from 10.0.0.0/8 to any port 53 comment 'Podman container DNS'
+sudo podman-compose down                       # volumes and data are kept
+sudo podman network rm shopease-backend
+sudo podman-compose up -d --build
+sudo podman exec shopease-app getent hosts db  # -> 10.89.x.x  db
+curl -s http://localhost:8081/health           # -> "database":"UP", "dataSource":"jndi:..."
 ```
 
-`subnet 10.123.45.0/24 is already used on the host` → another network uses it (for example a
-second ShopEase stack): set `BACKEND_SUBNET` and `DB_IP` in `.env`, e.g. `10.123.46.0/24` and
-`10.123.46.10`.
+The image is built with `network: host` so Maven can download dependencies even where ufw blocks
+DNS from the container bridge. Running Podman **rootless** (without `sudo`) avoids the problem
+entirely, because rootless networking does not pass through the host firewall.
+
+### `requested static ip 10.123.45.10 not in any subnet on network shopease-backend`
+
+The stack was started with an older version of this file (fixed IP for `db`). Pull the current
+version, then remove the old network once:
+
+```bash
+git pull
+sudo podman-compose down
+sudo podman network rm shopease-backend
+sudo podman-compose up -d --build
+```
+
+### `Set POSTGRES_PASSWORD in .env (see .env.example)`
+
+No `.env` file yet: `cp .env.example .env`, set `POSTGRES_PASSWORD` and `APP_ADMIN_PASSWORD`,
+then `podman-compose up -d --build`.
 
 ## 7. Useful commands
 

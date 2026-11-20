@@ -56,6 +56,10 @@ $YES || { read -r -p "Overwrite volumes shopease-pgdata and shopease-uploads wit
 echo "== Stopping app and db"
 stop_services app db
 trap 'echo "== Starting db and app"; start_stack' EXIT
-export STAMP
-$COMPOSE --profile ops run --rm restore
+# throw-away container: empties each volume and unpacks the archive into it
+# (a volume deleted by "compose down -v" is created again automatically by -v)
+$ENGINE run --rm --network none \
+    -v shopease-pgdata:/volumes/pgdata -v shopease-uploads:/volumes/uploads \
+    -v "$PWD/backups":/backups:ro docker.io/library/busybox:1.37 \
+    sh -c "set -e; for v in pgdata uploads; do rm -rf /volumes/\$v/* /volumes/\$v/.[!.]*; tar xzf /backups/\$v-$STAMP.tar.gz -C /volumes/\$v; echo restored \$v; done"
 echo "Restore of $STAMP complete."

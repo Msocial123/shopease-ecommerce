@@ -37,7 +37,11 @@ else
     echo "== 2/3 Stopping app and db for a consistent file-level copy of the volumes"
     trap 'echo "== Starting db and app again"; start_stack' EXIT
     stop_services app db
-    $COMPOSE --profile ops run --rm backup
+    # throw-away container: mounts both volumes read-only + ./backups and runs tar
+    $ENGINE run --rm --network none \
+        -v shopease-pgdata:/volumes/pgdata:ro -v shopease-uploads:/volumes/uploads:ro \
+        -v "$PWD/backups":/backups docker.io/library/busybox:1.37 \
+        sh -c "set -e; for v in pgdata uploads; do tar czf /backups/\$v-$STAMP.tar.gz -C /volumes/\$v . && echo created \$v-$STAMP.tar.gz; done"
 fi
 
 echo "== 3/3 Checksums"
