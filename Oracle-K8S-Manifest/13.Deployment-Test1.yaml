@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: shopease
+  name: fitness-deployment-test
   annotations:
     kubernetes.io/change-cause: "v2.0.0 - probes and resource limits"
 spec:
@@ -21,6 +21,6 @@ spec:
     spec:
       containers:
         - name: shopease
-          image: muralisocial123/shopease:v2.0.0
+          image: muralisocial123/fitness-tracker:v1.0.0
           ports:
             - containerPort: 8080

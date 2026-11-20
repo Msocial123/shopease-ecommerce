@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: shopease
+  name: fitness-deployment
   annotations:
     kubernetes.io/change-cause: "v1.0.0 - first release"
 spec:
@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: shopease
-          image: muralisocial123/shopease:v1.0.0
+          image: muralisocial123/fitness-tracker:v2.0.0
           ports:
             - containerPort: 8080
           
