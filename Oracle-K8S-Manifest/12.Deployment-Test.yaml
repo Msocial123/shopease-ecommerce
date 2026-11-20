@@ -52,4 +52,4 @@ spec:
     - protocol: TCP
       port: 8087 # Service port (external)
       targetPort: 8080
-  type: LoadBalancer    
+  type: NodePort   
