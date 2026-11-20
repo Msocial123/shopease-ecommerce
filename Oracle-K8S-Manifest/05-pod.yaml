@@ -1,0 +1,23 @@
+# Topic: Pods - the smallest unit (one or more containers sharing network and storage)
+# A bare Pod is NOT re-created when it dies or is deleted - ReplicaSets/Deployments do that.
+#   kubectl apply -f 05-pod.yaml
+#   kubectl get pod shopease-pod -o wide
+#   kubectl logs -f shopease-pod
+#   kubectl exec -it shopease-pod -- bash
+#   kubectl port-forward pod/shopease-pod 8085:8080     # http://localhost:8085/health
+#   kubectl delete pod shopease-pod                     # gone for good
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shopease-pod
+  labels:
+    app: shopease-pod
+spec:
+  containers:
+    - name: shopease
+      image: muralisocial123/shopease:v1.0.0
+      ports:
+        - containerPort: 8080
+      envFrom:
+        - configMapRef: { name: shopease-config }
+        - secretRef: { name: shopease-secret }

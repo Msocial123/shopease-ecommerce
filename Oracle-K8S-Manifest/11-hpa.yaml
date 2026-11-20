@@ -1,0 +1,27 @@
+# Topic: Horizontal Pod Autoscaler - adds/removes pods based on CPU usage
+# Needs metrics-server and CPU requests on the pods (08-deployment-v2.yaml: 250m):
+#   minikube addons enable metrics-server
+#   kubectl apply -f 11-hpa.yaml
+#   kubectl top pods
+#   kubectl get hpa shopease-hpa --watch
+# Load test in a second terminal - REPLICAS go up; stop it and they go back down after ~5 minutes:
+#   kubectl run load --rm -it --image=busybox:1.37 --restart=Never -- \
+#     sh -c "while true; do wget -q -O- http://shopease-svc/products >/dev/null; done"
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: shopease-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: shopease
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50      # % of the CPU request

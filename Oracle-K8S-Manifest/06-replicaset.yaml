@@ -1,0 +1,30 @@
+# Topic: ReplicaSets - keep N identical pods running
+# Delete a pod and the ReplicaSet starts a new one immediately. A ReplicaSet cannot do rolling
+# updates - that is why we normally use a Deployment (which creates ReplicaSets for us).
+#   kubectl apply -f 06-replicaset.yaml
+#   kubectl get rs,pods -l app=shopease-rs
+#   kubectl delete pod <one-of-the-pods>        # a replacement appears
+#   kubectl scale rs shopease-rs --replicas=3
+#   kubectl delete rs shopease-rs
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: shopease-rs
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shopease-rs
+  template:
+    metadata:
+      labels:
+        app: shopease-rs
+    spec:
+      containers:
+        - name: shopease
+          image: muralisocial123/shopease:v1.0.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef: { name: shopease-config }
+            - secretRef: { name: shopease-secret }

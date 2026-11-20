@@ -1,0 +1,78 @@
+# Topic: Running PostgreSQL with persistent storage (StatefulSet overview)
+# StatefulSet vs Deployment:
+#   - stable pod name:   postgres-0 (not a random suffix), started/stopped in order
+#   - stable DNS name:   postgres-0.postgres-svc  (via the headless Service)
+#   - own storage:       volumeClaimTemplates -> PVC "data-postgres-0", bound to the NFS PV below
+#   kubectl get sts,pods,pvc
+#   kubectl exec -it postgres-0 -- psql -U shopease -d shopease -c "\dt"
+#   kubectl delete pod postgres-0      # comes back as postgres-0, same PVC, same data
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-nfs-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-postgres
+  nfs:
+    server: 192.168.49.1
+    path: /srv/nfs/k8s/postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+spec:
+  clusterIP: None                   # headless: DNS points straight at the pod
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom: { secretKeyRef: { name: shopease-secret, key: POSTGRES_DB } }
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: shopease-secret, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: shopease-secret, key: POSTGRES_PASSWORD } }
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "shopease", "-d", "shopease"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: nfs-postgres
+        resources:
+          requests:
+            storage: 2Gi

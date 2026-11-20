@@ -1,0 +1,19 @@
+# Topic: Namespaces for environment separation
+# The other files have NO namespace inside, so the same files can be applied to dev or prod:
+#   kubectl apply -f 00-namespaces.yaml
+#   kubectl config set-context --current --namespace=shopease-dev     # default namespace from now on
+#   kubectl get pods -n shopease-dev        vs.   kubectl get pods -n shopease-prod
+# Objects in different namespaces are isolated (names, quotas, access).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shopease-dev
+  labels:
+    env: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shopease-prod
+  labels:
+    env: prod

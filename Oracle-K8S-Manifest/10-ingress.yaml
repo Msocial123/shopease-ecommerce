@@ -1,0 +1,34 @@
+# Topic: Ingress and ingress controllers; host and path routing
+# An Ingress is only routing RULES - the INGRESS CONTROLLER (nginx) does the work:
+#   minikube addons enable ingress
+#   kubectl get pods -n ingress-nginx
+#
+# host routing : requests for shopease.local go to ShopEase
+# path routing : /api -> the REST API, / -> the web shop   (both served by shopease-svc here)
+#   curl -H "Host: shopease.local" http://$(minikube ip)/
+#   curl -H "Host: shopease.local" http://$(minikube ip)/api/products
+# or put "<minikube ip>  shopease.local" in /etc/hosts and open http://shopease.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopease-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shopease.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: shopease-svc
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shopease-svc
+                port:
+                  number: 80

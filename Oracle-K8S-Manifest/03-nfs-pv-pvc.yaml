@@ -1,0 +1,47 @@
+# Topic: PersistentVolumes (PV) and PersistentVolumeClaims (PVC) on an NFS server
+#
+# ---- 1. NFS server (once, on the Minikube host - Ubuntu) --------------------------------
+#   sudo apt install -y nfs-kernel-server
+#   sudo mkdir -p /srv/nfs/k8s/postgres /srv/nfs/k8s/uploads
+#   sudo chown -R nobody:nogroup /srv/nfs/k8s && sudo chmod -R 777 /srv/nfs/k8s
+#   echo "/srv/nfs/k8s 192.168.49.0/24(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a /etc/exports
+#   sudo exportfs -ra && sudo systemctl enable --now nfs-server
+#   sudo exportfs -v
+# ---- 2. Firewall (only if ufw is active) ------------------------------------------------
+#   sudo ufw allow from 192.168.49.0/24              # DNS + NFS from the Minikube node
+#   sudo ufw route allow from 192.168.49.0/24        # Minikube node -> internet (image pulls)
+# ---- 3. NFS client inside the Minikube node ---------------------------------------------
+#   minikube ssh -- "sudo apt-get update && sudo apt-get install -y nfs-common"
+# 192.168.49.0/24 = Minikube's network, 192.168.49.1 = the host (NFS server) seen from Minikube.
+# ------------------------------------------------------------------------------------------
+#
+# PV  = storage offered by the admin (cluster-wide)
+# PVC = storage requested by an app (namespaced); Kubernetes BINDS a PVC to a matching PV
+#   kubectl get pv,pvc
+#
+# Uploaded product images: ReadWriteMany, so ALL ShopEase pods share the same folder.
+# (The PostgreSQL PV is in 04-postgres-statefulset.yaml.)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shopease-uploads-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain       # data stays when the PVC is deleted
+  storageClassName: nfs
+  nfs:
+    server: 192.168.49.1
+    path: /srv/nfs/k8s/uploads
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shopease-uploads-pvc
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,18 @@
+# Topic: ConfigMaps - non-secret settings
+# Used two ways in 07/08-deployment:
+#   envFrom      -> every key below becomes an ENVIRONMENT VARIABLE (Tomcat's server.xml reads DB_*)
+#   volume       -> the key "store.properties" becomes a FILE: /config/store.properties
+#   kubectl get configmap shopease-config -o yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopease-config
+data:
+  DB_DRIVER: "org.postgresql.Driver"
+  DB_URL: "jdbc:postgresql://postgres-svc:5432/shopease"
+  APP_STORE_NAME: "ShopEase on Kubernetes"
+  TZ: "Asia/Kolkata"
+  store.properties: |
+    store.name=ShopEase
+    store.currency=INR
+    store.support=support@shopease.com

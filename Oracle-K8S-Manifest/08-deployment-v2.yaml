@@ -1,0 +1,80 @@
+# Topics: Liveness, readiness and startup probes + Resource requests and limits   (ShopEase v2)
+# Same Deployment as 07 with a new image tag, probes and resources -> applying it is a ROLLING UPDATE.
+#   kubectl apply -f 08-deployment-v2.yaml
+#   kubectl rollout status deployment/shopease
+#   kubectl describe pod -l app=shopease | grep -E "Liveness|Readiness|Startup|Limits|Requests" -A2
+#
+# startupProbe   - has Tomcat started? (the other probes wait for it; slow starts are not killed)
+# readinessProbe - ready for traffic? /health is 503 while the database is down -> pod leaves the
+#                  Service but is NOT restarted
+# livenessProbe  - still alive? port 8080 not answering -> container is restarted
+# requests       - reserved CPU/memory, used for scheduling and by the HPA (11-hpa.yaml)
+# limits         - maximum: CPU is throttled, memory above the limit -> OOMKilled
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shopease
+  annotations:
+    kubernetes.io/change-cause: "v2.0.0 - probes and resource limits"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: shopease
+  template:
+    metadata:
+      labels:
+        app: shopease
+    spec:
+      containers:
+        - name: shopease
+          image: muralisocial123/shopease:v2.0.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef: { name: shopease-config }
+            - secretRef: { name: shopease-secret }
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          startupProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 5
+            failureThreshold: 24      # up to 2 minutes to start
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 20
+            failureThreshold: 3
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: secret
+              mountPath: /etc/shopease-secret
+              readOnly: true
+            - name: uploads
+              mountPath: /usr/local/tomcat/uploads
+      volumes:
+        - name: config
+          configMap:
+            name: shopease-config
+            items:
+              - key: store.properties
+                path: store.properties
+        - name: secret
+          secret:
+            secretName: shopease-secret
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: shopease-uploads-pvc
